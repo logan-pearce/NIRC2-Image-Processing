@@ -22,7 +22,7 @@
 #  - Cleaned science images as .fits files in the same directory as the raw image
 #
 # From the terminal, execute as follows:
-# python image_process.py
+# python image_process.py ~/Desktop/UTexas/Astro_research_data/data/GSC6214/2009_05_31/
 #
 
 import numpy as np
@@ -38,9 +38,19 @@ import warnings
 # keywords.  These aren't necessary to see and don't impact the function at all.
 warnings.filterwarnings("ignore")
 
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("path",type=str)
+args = parser.parse_args()
+path=args.path
+
+folder='~/'+path.split('/')[3]+'/'+path.split('/')[4]+'/'+path.split('/')[5]+'/'+path.split('/')[6]+'/'+path.split('/')[7]+'/'+path.split('/')[8]+'/'
+directory = path.split('/')[0]+'/'+path.split('/')[1]+'/'+path.split('/')[2]+'/'+path.split('/')[3]+'/'+path.split('/')[4]+'/'+path.split('/')[5]+ \
+  '/'+path.split('/')[6]+'/'+path.split('/')[7]+'/'+path.split('/')[8]+'/'
+
 ########################################## Make master dark ##########################################
 print 'Making master dark......'
-with open('darklist') as f:
+with open(directory+'darklist') as f:
     z = f.read().splitlines()
 
 # Linearizing coefficients:
@@ -55,7 +65,7 @@ shape=len(z)
 item=np.linspace(0,shape,shape+1,dtype=int)
 # Initialize master dark image:
 darkstack = np.zeros((shape,sizex,sizey))
-
+print "Linearizing and median combining ",shape,"dark files"
 #Importing darks, linearizing, and gain correcting each one for making master dark:
 for line,i in zip(z,item):
     drkhdr = getheader(line)
@@ -69,6 +79,7 @@ for line,i in zip(z,item):
 
 # Median combine the corrected dark frames into master dark frame:
 masterdark = np.median(darkstack,axis=0)
+#fits.writeto('masterdark.fits',masterdark,overwrite=True)
 
 dark_exposure = drkhdr['elaptime'] * u.second  #Calls the header to get exposure times
 print 'done'
@@ -84,8 +95,9 @@ def mode(a):
 print 'Making master flat.......'
 
 #make master flat:
-with open('flatlist') as f:
+with open(directory+'flatlist') as f:
     y = f.read().splitlines()
+    
 shapef=len(y)
 # If the number of flat frames exceeds 10, just cut it off at 10.  Sometimes there can be just
 # too many flats for a single filter, more than 10 really isn't necessary.
@@ -106,7 +118,7 @@ for i in item:
     yz=y[i]
     yf.append(yz)
 yf = np.array(yf)
-
+print 'Stacking ', yf.shape[0], 'flat files'
 flatstack = np.zeros((yf.shape[0],sizex,sizey))
 for line,i in zip(yf,item):
     flthdr = getheader(line)
@@ -124,18 +136,19 @@ masterflat = np.median(flatstack,axis=0) #median combine flats
 masterflat = masterflat / mode(masterflat)  #normalize master flat to mode value
 print 'done'
 
-#hdu = fits.PrimaryHDU(masterflat)
-#hdu.writeto('masterflat.fits',overwrite=True)
-#hdu = fits.PrimaryHDU(masterdark)
-#hdu.writeto('masterdark.fits',overwrite=True)
-
 ############################### Dark subtract and flat divide each science frame: #################################
 
 print 'Processing images..... '
 
 #Input images to be processed:
-with open('objectlist') as f:
-    z = f.read().splitlines()
+exists = os.path.exists(directory+'objectlist')
+if exists==True:
+    pass
+else:
+    os.system('ls '+folder+'*.fits > '+folder+'/objectlist')
+
+with open(directory+'objectlist') as f:
+        z = f.read().splitlines()
 
 # Open header for first image to get the size:
 imhdr = getheader(z[0])
@@ -158,7 +171,7 @@ for line in z:
     ## Flat divide image:
     flat_div = ds_image / masterflat
     newfilename = line.split('.')[0]+'.'+line.split('.')[1]+'.'+line.split('.')[2]+'.LDFC.'+line.split('.')[3]
-    imhdr['COMMENT'] = '         Dark subtracted and flat corrected on '+time.strftime("%m/%d/%Y")+ ' By Logan A. Pearce'
+    imhdr['COMMENT'] = '         Linearized, dark subtracted and flat corrected on '+time.strftime("%m/%d/%Y")+ ' By Logan A. Pearce'
     fits.writeto(newfilename,flat_div,imhdr,overwrite=True)
 	
 print 'done'
@@ -229,5 +242,6 @@ for line in z:
     # Write out the bad pixel corrected image to a new fits file:
     newfilename = line.split('.')[0]+'.'+line.split('.')[1]+'.'+line.split('.')[2]+'.LDFC.'+line.split('.')[3]
     fits.writeto(newfilename,badpixelfixed,imhdr,overwrite=True)
+    print "finished number ",line.split('.')[2]
 
 print 'Donezo.'
