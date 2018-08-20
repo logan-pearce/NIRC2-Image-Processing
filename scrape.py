@@ -24,7 +24,6 @@
 #                        downloaded to the same directory as this script.
 
 from astropy.io import ascii
-import pandas as pd
 import sys
 import wget
 import os
