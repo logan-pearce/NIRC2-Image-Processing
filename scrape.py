@@ -9,7 +9,7 @@
 # Retrieve NIRC2 image files from KOA archive
 # Adapted from scrape.pro by Adam Kraus.
 #
-# Requires: astropy, pandas, wget
+# Requires: astropy, wget
 #
 # Input:ascii table download from KOA archive search results
 #
